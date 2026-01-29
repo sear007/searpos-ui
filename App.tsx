@@ -4,7 +4,7 @@ import Login from './components/Login';
 import ProductList from './components/ProductList';
 import CartView from './components/CartView';
 import AlertContainer from './components/ui/Alert';
-import { ShoppingCart, LogOut, Filter, X, Loader2, ArrowDown } from 'lucide-react';
+import { ShoppingCart, LogOut, Filter, X, Loader2, ArrowDown, AlertTriangle } from 'lucide-react';
 import { getProducts } from './services/api';
 import { Product } from './types';
 
@@ -179,8 +179,43 @@ const AuthenticatedLayout: React.FC = () => {
   );
 };
 
+const SessionExpiredModal: React.FC<{ onConfirm: () => void }> = ({ onConfirm }) => (
+  <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+    <div className="bg-white rounded-2xl p-6 shadow-2xl max-w-xs w-full text-center space-y-4">
+       <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+          <AlertTriangle className="w-6 h-6 text-red-600" />
+       </div>
+       <div className="space-y-1">
+         <h3 className="text-lg font-bold text-gray-900">Session Expired</h3>
+         <p className="text-sm text-gray-500">You have been logged out. Please log in again to continue.</p>
+       </div>
+       <button 
+         onClick={onConfirm}
+         className="w-full bg-gray-900 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition-transform"
+       >
+         Okay
+       </button>
+    </div>
+  </div>
+);
+
 const MainContent: React.FC = () => {
-  const { userPhone } = useStore();
+  const { userPhone, logout } = useStore();
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setSessionExpired(true);
+    };
+    
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+  }, []);
+
+  const handleLogoutConfirm = () => {
+    setSessionExpired(false);
+    logout();
+  };
 
   return (
     <div className="fixed inset-0 w-full h-full bg-gray-200 flex justify-center overflow-hidden">
@@ -189,6 +224,8 @@ const MainContent: React.FC = () => {
         {/* Alerts scoped to mobile frame */}
         <AlertContainer />
         
+        {sessionExpired && <SessionExpiredModal onConfirm={handleLogoutConfirm} />}
+
         {userPhone ? <AuthenticatedLayout /> : <Login />}
       </div>
     </div>

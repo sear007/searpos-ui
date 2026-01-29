@@ -21,6 +21,15 @@ const getImageUrl = (path: string | null) => {
   return `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
 };
 
+// Helper to check for 401 Unauthorized
+const checkAuth = (response: Response) => {
+  if (response.status === 401) {
+    window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+    throw new Error('Unauthorized');
+  }
+  return response;
+};
+
 export const loginUser = async (phone: string): Promise<{ token: string } | null> => {
   if (DEBUG_MODE) {
     await new Promise(resolve => setTimeout(resolve, 800));
@@ -60,6 +69,8 @@ export const getProducts = async (page: number = 1): Promise<ProductsResponse> =
       headers: getHeaders(),
     });
 
+    checkAuth(response);
+
     if (!response.ok) throw new Error(`API call failed: ${response.statusText}`);
     
     const result = await response.json();
@@ -98,6 +109,8 @@ export const submitOrder = async (orderData: any): Promise<boolean> => {
       headers: getHeaders(),
       body: JSON.stringify(orderData),
     });
+
+    checkAuth(response);
 
     if (!response.ok) {
       const err = await response.text();
