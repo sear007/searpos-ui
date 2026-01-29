@@ -1,25 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { CustomerType, OrderRequest } from '../types';
-import { X, Send, Loader2, Tag } from 'lucide-react';
+import { X, Send, Loader2, Tag, MapPin } from 'lucide-react';
 
-// Hook to get Telegram Chat ID
+// --- 1. Robust Telegram Hook ---
 const useTelegramChatId = () => {
   const [chatId, setChatId] = useState<number | string | null>(null);
 
   useEffect(() => {
-    // Ensure we are inside the Telegram environment
-    // Use type assertion or optional chaining to access Telegram on window safely
+    // Check if the Telegram WebApp object is available
     const tg = (window as any).Telegram?.WebApp;
 
     if (tg) {
-      tg.ready();
+      tg.ready(); // Notify Telegram that the app is initialized
       
-      // Get ID from chat context or user context
+      // Prioritize Chat ID (for groups), fallback to User ID (for private bots)
       const id = tg.initDataUnsafe?.chat?.id || tg.initDataUnsafe?.user?.id;
       
       if (id) {
         setChatId(id);
+        console.log("Telegram ID found:", id);
       }
     }
   }, []);
@@ -35,7 +35,10 @@ interface RequestOrderModalProps {
 const RequestOrderModal: React.FC<RequestOrderModalProps> = ({ isOpen, onClose }) => {
   const { userPhone, cart, cartTotal, totalOffer, submitOrderRequest, addAlert } = useStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const chatId = useTelegramChatId();
+  const [locationStatus, setLocationStatus] = useState<string>(''); // For UI feedback
+  
+  // Get ID from Hook
+  const hookChatId = useTelegramChatId();
 
   const [formData, setFormData] = useState<Partial<OrderRequest>>({
     customerName: '',
@@ -44,6 +47,23 @@ const RequestOrderModal: React.FC<RequestOrderModalProps> = ({ isOpen, onClose }
     latitude: null,
     longitude: null,
   });
+
+  // Effect to preload location when modal opens (Optional UX improvement)
+  useEffect(() => {
+    if (isOpen && "geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setFormData(prev => ({
+            ...prev,
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude
+          }));
+          setLocationStatus('Location acquired');
+        },
+        (err) => console.log("Pre-fetch location failed", err)
+      );
+    }
+  }, [isOpen]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -58,16 +78,26 @@ const RequestOrderModal: React.FC<RequestOrderModalProps> = ({ isOpen, onClose }
     }
     
     setIsSubmitting(true);
+    setLocationStatus('Acquiring location...');
 
+    // --- 2. Define Submission Logic ---
     const processSubmission = async (lat: number | null, lng: number | null) => {
+        // FINAL FALLBACK: If hookChatId is null, try grabbing it directly from window
+        const tgUnsafe = (window as any).Telegram?.WebApp?.initDataUnsafe;
+        const finalChatId = hookChatId || tgUnsafe?.chat?.id || tgUnsafe?.user?.id;
+
+        if (!finalChatId) {
+            console.warn("Warning: No Chat ID found. Are you testing outside Telegram?");
+        }
+
         const finalPayload = { 
             ...formData, 
-            latitude: lat || 0, // Ensure numeric for API
+            latitude: lat || 0, 
             longitude: lng || 0,
             items: cart, 
             total: cartTotal,
             totalOffer: totalOffer,
-            chat_id: chatId // Include Telegram Chat ID
+            chat_id: finalChatId // Send the robust ID
         };
 
         const success = await submitOrderRequest(finalPayload);
@@ -79,21 +109,41 @@ const RequestOrderModal: React.FC<RequestOrderModalProps> = ({ isOpen, onClose }
             addAlert('Failed to send order. Please try again.', 'error');
         }
         setIsSubmitting(false);
+        setLocationStatus('');
     };
 
-    if (navigator.geolocation) {
+    // --- 3. Execute Geolocation Logic ---
+    // If we already captured location in the useEffect, use it immediately
+    if (formData.latitude && formData.longitude) {
+        processSubmission(formData.latitude, formData.longitude);
+        return;
+    }
+
+    if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const { latitude, longitude } = position.coords;
+                // Update state for visual consistency
                 setFormData(prev => ({ ...prev, latitude, longitude }));
+                // Submit immediately
                 processSubmission(latitude, longitude);
             },
             (error) => {
                 console.error("Location error:", error);
-                addAlert('Could not fetch location. Submitting without it.', 'info');
+                let errorMessage = 'Location failed.';
+                if (error.code === 1) errorMessage = 'Location permission denied.';
+                else if (error.code === 2) errorMessage = 'Location unavailable.';
+                else if (error.code === 3) errorMessage = 'Location timed out.';
+                
+                addAlert(`${errorMessage} Submitting without location.`, 'info');
+                // IMPORTANT: Submit anyway with null/0 values
                 processSubmission(null, null);
             },
-            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+            { 
+                enableHighAccuracy: true, 
+                timeout: 8000, // Wait max 8 seconds
+                maximumAge: 0 
+            }
         );
     } else {
         addAlert('Geolocation not supported. Submitting without it.', 'info');
@@ -117,7 +167,7 @@ const RequestOrderModal: React.FC<RequestOrderModalProps> = ({ isOpen, onClose }
         {/* Content */}
         <div className="p-5 space-y-6">
           
-          {/* Order Summary Summary */}
+          {/* Order Summary */}
           <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-3">
             <h3 className="text-sm font-semibold text-gray-700 mb-2">Order Summary</h3>
             <div className="text-xs text-gray-600">
@@ -182,21 +232,32 @@ const RequestOrderModal: React.FC<RequestOrderModalProps> = ({ isOpen, onClose }
               </div>
             </div>
 
-            {/* Location Section (Read-only) */}
+            {/* Location Section (Read-only status) */}
             <div className="pt-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">Delivery Location</label>
               
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
                   <span className="block text-[10px] text-gray-400 uppercase tracking-wider">Latitude</span>
-                  <span className="text-sm font-mono text-gray-800">{formData.latitude?.toFixed(6) || 'Auto-detect'}</span>
+                  <span className="text-sm font-mono text-gray-800">
+                    {formData.latitude ? formData.latitude.toFixed(6) : '---'}
+                  </span>
                 </div>
                 <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
                   <span className="block text-[10px] text-gray-400 uppercase tracking-wider">Longitude</span>
-                  <span className="text-sm font-mono text-gray-800">{formData.longitude?.toFixed(6) || 'Auto-detect'}</span>
+                  <span className="text-sm font-mono text-gray-800">
+                    {formData.longitude ? formData.longitude.toFixed(6) : '---'}
+                  </span>
                 </div>
               </div>
-              <p className="text-[10px] text-gray-400 mt-1">Location will be captured automatically when you send the request.</p>
+              
+              {/* Location Status Message */}
+              <div className="flex items-center gap-2 mt-2">
+                 <MapPin className={`w-3 h-3 ${formData.latitude ? 'text-green-500' : 'text-gray-400'}`} />
+                 <p className="text-[10px] text-gray-400">
+                    {locationStatus || (formData.latitude ? 'Location ready' : 'Location will be detected on send')}
+                 </p>
+              </div>
             </div>
           </form>
         </div>
@@ -210,7 +271,7 @@ const RequestOrderModal: React.FC<RequestOrderModalProps> = ({ isOpen, onClose }
             className="w-full bg-primary text-white py-3.5 px-4 rounded-xl font-bold shadow-lg hover:shadow-xl hover:bg-blue-700 transition-all active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100 flex items-center justify-center gap-2"
           >
             {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-            {isSubmitting ? 'Fetching Location...' : 'Send Order Request'}
+            {isSubmitting ? 'Processing...' : 'Send Order Request'}
           </button>
         </div>
       </div>
