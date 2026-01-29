@@ -27,6 +27,7 @@ export interface OrderRequest {
   items: CartItem[];
   total: number;
   totalOffer: number; // Renamed from negotiatedTotal
+  chat_id?: number | string | null;
 }
 
 export type AlertType = 'success' | 'error' | 'info';

@@ -1,7 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { CustomerType, OrderRequest } from '../types';
 import { X, Send, Loader2, Tag } from 'lucide-react';
+
+// Hook to get Telegram Chat ID
+const useTelegramChatId = () => {
+  const [chatId, setChatId] = useState<number | string | null>(null);
+
+  useEffect(() => {
+    // Ensure we are inside the Telegram environment
+    // Use type assertion or optional chaining to access Telegram on window safely
+    const tg = (window as any).Telegram?.WebApp;
+
+    if (tg) {
+      tg.ready();
+      
+      // Get ID from chat context or user context
+      const id = tg.initDataUnsafe?.chat?.id || tg.initDataUnsafe?.user?.id;
+      
+      if (id) {
+        setChatId(id);
+      }
+    }
+  }, []);
+
+  return chatId;
+};
 
 interface RequestOrderModalProps {
   isOpen: boolean;
@@ -11,6 +35,7 @@ interface RequestOrderModalProps {
 const RequestOrderModal: React.FC<RequestOrderModalProps> = ({ isOpen, onClose }) => {
   const { userPhone, cart, cartTotal, totalOffer, submitOrderRequest, addAlert } = useStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const chatId = useTelegramChatId();
 
   const [formData, setFormData] = useState<Partial<OrderRequest>>({
     customerName: '',
@@ -41,7 +66,8 @@ const RequestOrderModal: React.FC<RequestOrderModalProps> = ({ isOpen, onClose }
             longitude: lng || 0,
             items: cart, 
             total: cartTotal,
-            totalOffer: totalOffer
+            totalOffer: totalOffer,
+            chat_id: chatId // Include Telegram Chat ID
         };
 
         const success = await submitOrderRequest(finalPayload);
