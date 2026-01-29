@@ -1,0 +1,7 @@
+{
+  "name": "QuickOrder Mobile",
+  "description": "A streamlined mobile ordering app for wholesale and online customers with geolocation support.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
