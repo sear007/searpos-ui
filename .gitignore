@@ -25,3 +25,6 @@ dist-ssr
 
 package-lock.json
 package.json
+dist
+index.html
+vite.config.ts
