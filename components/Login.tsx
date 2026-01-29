@@ -1,18 +1,22 @@
 import React, { useState } from 'react';
 import { useStore } from '../context/StoreContext';
-import { ArrowRight, Smartphone } from 'lucide-react';
+import { ArrowRight, Smartphone, Loader2 } from 'lucide-react';
 
 const Login: React.FC = () => {
   const { login, addAlert } = useStore();
   const [phone, setPhone] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (phone.trim().length < 3) {
       addAlert('Invalid phone number', 'error');
       return;
     }
-    login(phone);
+    
+    setIsLoading(true);
+    const success = await login(phone);
+    setIsLoading(false);
   };
 
   return (
@@ -32,6 +36,7 @@ const Login: React.FC = () => {
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
+            disabled={isLoading}
             className="w-full px-5 py-4 bg-gray-50 border-2 border-transparent focus:border-primary/20 rounded-2xl text-center text-xl font-bold text-gray-900 placeholder:text-gray-300 outline-none transition-all"
             placeholder="0XX-XXX-XXX"
             autoFocus
@@ -39,10 +44,17 @@ const Login: React.FC = () => {
 
           <button
             type="submit"
-            className="w-full bg-black text-white font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-xl shadow-black/10 hover:shadow-2xl hover:shadow-black/20"
+            disabled={isLoading}
+            className="w-full bg-black text-white font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-xl shadow-black/10 hover:shadow-2xl hover:shadow-black/20 disabled:opacity-70 disabled:active:scale-100"
           >
-            <span>Start Ordering</span>
-            <ArrowRight className="w-5 h-5" />
+            {isLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <>
+                <span>Start Ordering</span>
+                <ArrowRight className="w-5 h-5" />
+              </>
+            )}
           </button>
         </form>
 

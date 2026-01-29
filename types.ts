@@ -36,3 +36,21 @@ export interface AlertMessage {
   type: AlertType;
   message: string;
 }
+
+export interface StoreContextType {
+  userPhone: string | null;
+  login: (phone: string) => Promise<boolean>;
+  logout: () => void;
+  cart: CartItem[];
+  addToCart: (product: Product) => void;
+  updateOfferPrice: (productId: string, price: number) => void;
+  removeFromCart: (productId: string) => void;
+  clearCart: () => void;
+  submitOrderRequest: (orderData: any) => Promise<boolean>;
+  alerts: AlertMessage[];
+  addAlert: (message: string, type: AlertType) => void;
+  removeAlert: (id: string) => void;
+  cartTotal: number;
+  totalOffer: number;
+  cartCount: number;
+}
