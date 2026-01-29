@@ -2,7 +2,8 @@ import { DUMMY_PRODUCTS } from '../constants';
 import { Product } from '../types';
 
 export const DEBUG_MODE = false; 
-const API_URL = 'https://10d1bcdc1a71.ngrok-free.app/api';
+const BASE_URL = 'https://10d1bcdc1a71.ngrok-free.app';
+const API_URL = `${BASE_URL}/api/telegram`;
 
 const getHeaders = () => {
   const token = localStorage.getItem('auth_token');
@@ -11,6 +12,13 @@ const getHeaders = () => {
     'Authorization': token ? `Bearer ${token}` : '',
     'ngrok-skip-browser-warning': 'true'
   };
+};
+
+const getImageUrl = (path: string | null) => {
+  if (!path) return 'https://picsum.photos/400/400?random=1'; // default fallback
+  if (path.startsWith('http')) return path; // already full url
+  // Handle relative paths from Laravel storage
+  return `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
 };
 
 export const loginUser = async (phone: string): Promise<{ token: string } | null> => {
@@ -35,14 +43,19 @@ export const loginUser = async (phone: string): Promise<{ token: string } | null
   }
 };
 
-export const getProducts = async (): Promise<Product[]> => {
+export interface ProductsResponse {
+  products: Product[];
+  lastPage: number;
+}
+
+export const getProducts = async (page: number = 1): Promise<ProductsResponse> => {
   if (DEBUG_MODE) {
     await new Promise(resolve => setTimeout(resolve, 800));
-    return DUMMY_PRODUCTS;
+    return { products: DUMMY_PRODUCTS, lastPage: 1 };
   }
 
   try {
-    const response = await fetch(`${API_URL}/products`, {
+    const response = await fetch(`${API_URL}/products?page=${page}`, {
       method: 'GET',
       headers: getHeaders(),
     });
@@ -51,23 +64,25 @@ export const getProducts = async (): Promise<Product[]> => {
     
     const result = await response.json();
     
-    // Map API response to internal Product type
-    // Assuming API returns { data: [...] } based on description
+    // API returns Laravel pagination object: { data: [...], last_page: 1, current_page: 1, ... }
     const apiProducts = Array.isArray(result.data) ? result.data : [];
     
-    return apiProducts.map((p: any) => ({
+    const mappedProducts = apiProducts.map((p: any) => ({
       id: p.id ? String(p.id) : String(Math.random()),
       name: p.name || 'Unknown Product',
       price: typeof p.price === 'number' ? p.price : 0,
-      category: p.category || 'Uncategorized',
-      image: p.image || `https://picsum.photos/400/400?random=${p.id || Math.random()}` // Fallback image
+      // Map nested category object { id, name } to string
+      category: p.category?.name || 'Uncategorized',
+      image: getImageUrl(p.image)
     }));
+
+    return {
+      products: mappedProducts,
+      lastPage: result.last_page || 1
+    };
   } catch (error) {
     console.error("Failed to fetch products:", error);
-    // Return empty array or DUMMY_PRODUCTS on failure depending on preference.
-    // Returning empty array allows the UI to handle "No products" or we can fallback to dummy.
-    // For now, let's fallback to dummy if it's a network error for smoother demo if API is down
-    return DUMMY_PRODUCTS; 
+    return { products: [], lastPage: 1 }; 
   }
 };
 

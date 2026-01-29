@@ -22,9 +22,3 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
-package-lock.json
-package.json
-dist
-index.html
-vite.config.ts

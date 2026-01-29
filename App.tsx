@@ -4,7 +4,7 @@ import Login from './components/Login';
 import ProductList from './components/ProductList';
 import CartView from './components/CartView';
 import AlertContainer from './components/ui/Alert';
-import { ShoppingCart, LogOut, Filter, X } from 'lucide-react';
+import { ShoppingCart, LogOut, Filter, X, Loader2, ArrowDown } from 'lucide-react';
 import { getProducts } from './services/api';
 import { Product } from './types';
 
@@ -16,18 +16,47 @@ const AuthenticatedLayout: React.FC = () => {
   // Data State
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
 
-  // Fetch Data
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      const data = await getProducts();
-      setProducts(data);
+  // Fetch Data Function
+  const loadProducts = async (page: number, isRefresh = false) => {
+    if (isRefresh) setIsLoading(true);
+    else setIsLoadingMore(true);
+
+    try {
+      const { products: newProducts, lastPage: maxPage } = await getProducts(page);
+      
+      if (isRefresh) {
+        setProducts(newProducts);
+      } else {
+        setProducts(prev => [...prev, ...newProducts]);
+      }
+      
+      setLastPage(maxPage);
+      setCurrentPage(page);
+    } catch (error) {
+      console.error("Failed to load products", error);
+    } finally {
       setIsLoading(false);
-    };
-    fetchData();
+      setIsLoadingMore(false);
+    }
+  };
+
+  // Initial Load
+  useEffect(() => {
+    loadProducts(1, true);
   }, []);
+
+  const handleLoadMore = () => {
+    if (currentPage < lastPage && !isLoadingMore) {
+      loadProducts(currentPage + 1, false);
+    }
+  };
 
   // Derived State
   const categories = useMemo(() => {
@@ -53,7 +82,7 @@ const AuthenticatedLayout: React.FC = () => {
       </div>
 
       {/* Main Content Area - Scrollable */}
-      <main className="flex-1 overflow-y-auto p-4 scroll-smooth pt-16 w-full">
+      <main className="flex-1 overflow-y-auto p-4 scroll-smooth pt-16 w-full relative">
         <div className="mb-6">
           <h1 className="text-2xl font-black text-gray-900 tracking-tight">
             {selectedCategory || 'All Products'}
@@ -64,6 +93,25 @@ const AuthenticatedLayout: React.FC = () => {
         </div>
         
         <ProductList products={filteredProducts} isLoading={isLoading} />
+
+        {/* Pagination / Load More */}
+        {!isLoading && !selectedCategory && currentPage < lastPage && (
+          <div className="pb-32 pt-4 flex justify-center">
+            <button 
+              onClick={handleLoadMore}
+              disabled={isLoadingMore}
+              className="bg-white border border-gray-200 text-gray-800 px-6 py-3 rounded-xl font-bold text-sm shadow-sm active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
+            >
+              {isLoadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowDown className="w-4 h-4" />}
+              {isLoadingMore ? 'Loading...' : 'Load More Products'}
+            </button>
+          </div>
+        )}
+
+        {/* Loading More Spinner (if using infinite scroll logic later, currently using button) */}
+        {isLoadingMore && currentPage > 1 && !selectedCategory && (
+            <div className="h-20" /> // Spacer
+        )}
       </main>
 
       {/* Floating Action Buttons Container (Bottom Right Stack) */}
