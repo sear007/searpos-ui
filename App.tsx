@@ -67,60 +67,63 @@ const AuthenticatedLayout: React.FC = () => {
       </main>
 
       {/* Floating Action Buttons Container (Bottom Right Stack) */}
-      <div className="absolute bottom-6 right-6 flex flex-col items-end gap-3 pointer-events-none z-[50]">
-        
-        {/* Filter FAB */}
-        <div className="pointer-events-auto">
-          <div className="relative">
-             {/* Filter Menu Popup - Opens to the LEFT of the button */}
-            {isFilterOpen && (
-              <div className="absolute bottom-0 right-full mr-3 mb-0 bg-white rounded-2xl shadow-xl border border-gray-100 p-2 min-w-[160px] animate-[slideUp_0.2s_ease-out] origin-right">
-                <div className="flex justify-between items-center px-3 py-2 border-b border-gray-100 mb-1">
-                  <span className="text-xs font-bold text-gray-400 uppercase">Categories</span>
-                  <button onClick={() => setFilterOpen(false)}><X className="w-3 h-3 text-gray-400" /></button>
-                </div>
-                <div className="max-h-60 overflow-y-auto no-scrollbar space-y-1">
-                  <button
-                    onClick={() => { setSelectedCategory(null); setFilterOpen(false); }}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${!selectedCategory ? 'bg-primary/10 text-primary' : 'hover:bg-gray-50 text-gray-700'}`}
-                  >
-                    All
-                  </button>
-                  {categories.map(cat => (
+      {/* Only show FABs if cart/modal is NOT open */}
+      {!isCartOpen && (
+        <div className="absolute bottom-6 right-6 flex flex-col items-end gap-3 pointer-events-none z-[50]">
+            
+            {/* Filter FAB */}
+            <div className="pointer-events-auto">
+            <div className="relative">
+                {/* Filter Menu Popup - Opens to the LEFT of the button */}
+                {isFilterOpen && (
+                <div className="absolute bottom-0 right-full mr-3 mb-0 bg-white rounded-2xl shadow-xl border border-gray-100 p-2 min-w-[160px] animate-[slideUp_0.2s_ease-out] origin-right">
+                    <div className="flex justify-between items-center px-3 py-2 border-b border-gray-100 mb-1">
+                    <span className="text-xs font-bold text-gray-400 uppercase">Categories</span>
+                    <button onClick={() => setFilterOpen(false)}><X className="w-3 h-3 text-gray-400" /></button>
+                    </div>
+                    <div className="max-h-60 overflow-y-auto no-scrollbar space-y-1">
                     <button
-                      key={cat}
-                      onClick={() => { setSelectedCategory(cat); setFilterOpen(false); }}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${selectedCategory === cat ? 'bg-primary/10 text-primary' : 'hover:bg-gray-50 text-gray-700'}`}
+                        onClick={() => { setSelectedCategory(null); setFilterOpen(false); }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${!selectedCategory ? 'bg-primary/10 text-primary' : 'hover:bg-gray-50 text-gray-700'}`}
                     >
-                      {cat}
+                        All
                     </button>
-                  ))}
+                    {categories.map(cat => (
+                        <button
+                        key={cat}
+                        onClick={() => { setSelectedCategory(cat); setFilterOpen(false); }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${selectedCategory === cat ? 'bg-primary/10 text-primary' : 'hover:bg-gray-50 text-gray-700'}`}
+                        >
+                        {cat}
+                        </button>
+                    ))}
+                    </div>
                 </div>
-              </div>
-            )}
+                )}
 
-            <button
-              onClick={() => setFilterOpen(!isFilterOpen)}
-              className={`w-12 h-12 rounded-2xl shadow-lg transition-all active:scale-90 flex items-center justify-center ${isFilterOpen || selectedCategory ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}`}
+                <button
+                onClick={() => setFilterOpen(!isFilterOpen)}
+                className={`w-12 h-12 rounded-2xl shadow-lg transition-all active:scale-90 flex items-center justify-center ${isFilterOpen || selectedCategory ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}`}
+                >
+                <Filter className="w-5 h-5" />
+                </button>
+            </div>
+            </div>
+
+            {/* Cart FAB */}
+            <button 
+            onClick={() => setCartOpen(true)}
+            className="pointer-events-auto bg-primary text-white w-14 h-14 rounded-2xl shadow-xl shadow-primary/30 transition-all active:scale-95 relative flex items-center justify-center"
             >
-              <Filter className="w-5 h-5" />
+            <ShoppingCart className="w-6 h-6" />
+            {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold min-w-[20px] h-5 flex items-center justify-center rounded-full border-2 border-gray-50 shadow-sm px-1">
+                {cartCount}
+                </span>
+            )}
             </button>
-          </div>
         </div>
-
-        {/* Cart FAB */}
-        <button 
-          onClick={() => setCartOpen(true)}
-          className="pointer-events-auto bg-primary text-white w-14 h-14 rounded-2xl shadow-xl shadow-primary/30 transition-all active:scale-95 relative flex items-center justify-center"
-        >
-          <ShoppingCart className="w-6 h-6" />
-          {cartCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold min-w-[20px] h-5 flex items-center justify-center rounded-full border-2 border-gray-50 shadow-sm px-1">
-              {cartCount}
-            </span>
-          )}
-        </button>
-      </div>
+      )}
 
       {/* Cart Drawer */}
       {isCartOpen && <CartView isOpen={isCartOpen} onClose={() => setCartOpen(false)} />}

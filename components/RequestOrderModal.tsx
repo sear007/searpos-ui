@@ -9,7 +9,7 @@ interface RequestOrderModalProps {
 }
 
 const RequestOrderModal: React.FC<RequestOrderModalProps> = ({ isOpen, onClose }) => {
-  const { userPhone, cart, cartTotal, totalOffer, clearCart, addAlert } = useStore();
+  const { userPhone, cart, cartTotal, totalOffer, submitOrderRequest, addAlert } = useStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState<Partial<OrderRequest>>({
@@ -34,31 +34,31 @@ const RequestOrderModal: React.FC<RequestOrderModalProps> = ({ isOpen, onClose }
     
     setIsSubmitting(true);
 
-    const processSubmission = (lat: number | null, lng: number | null) => {
+    const processSubmission = async (lat: number | null, lng: number | null) => {
         const finalPayload = { 
             ...formData, 
-            latitude: lat,
-            longitude: lng,
+            latitude: lat || 0, // Ensure numeric for API
+            longitude: lng || 0,
             items: cart, 
             total: cartTotal,
             totalOffer: totalOffer
         };
 
-        // Simulate API call
-        setTimeout(() => {
-            console.log('Order Request Submitted:', finalPayload);
+        const success = await submitOrderRequest(finalPayload);
+        
+        if (success) {
             addAlert('Order request sent successfully!', 'success');
-            clearCart();
-            setIsSubmitting(false);
             onClose();
-        }, 1500);
+        } else {
+            addAlert('Failed to send order. Please try again.', 'error');
+        }
+        setIsSubmitting(false);
     };
 
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const { latitude, longitude } = position.coords;
-                // Update state to reflect in UI (briefly)
                 setFormData(prev => ({ ...prev, latitude, longitude }));
                 processSubmission(latitude, longitude);
             },

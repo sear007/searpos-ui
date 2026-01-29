@@ -1,38 +1,55 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Product, CartItem, AlertMessage, AlertType } from '../types';
-
-interface StoreContextType {
-  userPhone: string | null;
-  login: (phone: string) => void;
-  logout: () => void;
-  cart: CartItem[];
-  addToCart: (product: Product) => void;
-  updateOfferPrice: (productId: string, price: number) => void;
-  removeFromCart: (productId: string) => void;
-  clearCart: () => void;
-  alerts: AlertMessage[];
-  addAlert: (message: string, type: AlertType) => void;
-  removeAlert: (id: string) => void;
-  cartTotal: number;
-  totalOffer: number;
-  cartCount: number;
-}
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { Product, CartItem, AlertMessage, AlertType, StoreContextType } from '../types';
+import { loginUser, submitOrder } from '../services/api';
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [userPhone, setUserPhone] = useState<string | null>(null);
+  const [userPhone, setUserPhone] = useState<string | null>(localStorage.getItem('user_phone'));
   const [cart, setCart] = useState<CartItem[]>([]);
   const [alerts, setAlerts] = useState<AlertMessage[]>([]);
 
-  const login = (phone: string) => {
-    setUserPhone(phone);
-    addAlert(`Welcome back, ${phone}!`, 'success');
+  // Persist cart
+  useEffect(() => {
+    const savedCart = localStorage.getItem('cart');
+    if (savedCart) {
+      try {
+        setCart(JSON.parse(savedCart));
+      } catch (e) {
+        console.error("Failed to load cart", e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('cart', JSON.stringify(cart));
+  }, [cart]);
+
+  const login = async (phone: string): Promise<boolean> => {
+    try {
+      const data = await loginUser(phone);
+      if (data && data.token) {
+        localStorage.setItem('auth_token', data.token);
+        localStorage.setItem('user_phone', phone);
+        setUserPhone(phone);
+        addAlert(`Welcome back, ${phone}!`, 'success');
+        return true;
+      } else {
+        addAlert('Login failed. Please try again.', 'error');
+        return false;
+      }
+    } catch (error) {
+      addAlert('Login error. Check connection.', 'error');
+      return false;
+    }
   };
 
   const logout = () => {
     setUserPhone(null);
     setCart([]);
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_phone');
+    localStorage.removeItem('cart');
     addAlert('Logged out successfully.', 'info');
   };
 
@@ -68,6 +85,14 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setCart([]);
   };
 
+  const submitOrderRequest = async (orderData: any): Promise<boolean> => {
+    const success = await submitOrder(orderData);
+    if (success) {
+      clearCart();
+    }
+    return success;
+  };
+
   const addAlert = (message: string, type: AlertType) => {
     const id = Math.random().toString(36).substring(7);
     setAlerts((prev) => [...prev, { id, message, type }]);
@@ -101,6 +126,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         updateOfferPrice,
         removeFromCart,
         clearCart,
+        submitOrderRequest,
         alerts,
         addAlert,
         removeAlert,
